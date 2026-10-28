@@ -1,0 +1,22 @@
+do_parallel[CaVEMan]="caveman.pl \
+ -r $REF_BASE/genome.fa.fai \
+ -ig $REF_BASE/caveman/HiDepth.tsv \
+ -b $REF_BASE/caveman/flagging \
+ -ab $REF_BASE/vagrent \
+ -u $REF_BASE/caveman \
+ -s '$SPECIES' \
+ -sa $ASSEMBLY \
+ -t $CPU \
+ -st $PROTOCOL \
+ -tc $TMP/tum.cn.bed \
+ -nc $TMP/norm.cn.bed \
+ -td 5 -nd 2 \
+ -tb $BAM_MT_TMP \
+ -nb $BAM_WT_TMP \
+ -c $SNVFLAG \
+ -f $REF_BASE/caveman/flagging/flag.to.vcf.convert.ini \
+ -e $CAVESPLIT \
+ -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/caveman \
+ -x $CONTIG_EXCLUDE \
+ -k $NORM_CONTAM \
+ -no-flagging -noclean"
