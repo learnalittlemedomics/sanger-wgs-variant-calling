@@ -49,13 +49,13 @@ params.virtual_dep_flag = true  // default to true, ie, dep is always satisfied
 
 process cleanupWorkdir {
   container "${params.container ?: container[params.container_registry ?: default_container_registry]}:${params.container_version ?: version}"
-  publishDir "${params.publish_dir}/${task.process.replaceAll(':', '_')}", mode: "copy", enabled: params.publish_dir
+  publishDir "${params.publish_dir}/${task.process.replaceAll(':', '_')}", mode: "copy", enabled: (params.publish_dir ? true : false)
 
   cpus params.cpus
   memory "${params.mem} GB"
 
   input:
-    path files_to_delete  // more accurately, other non-hidden files in the same folder will be deleted as well
+    path files_to_delete, stageAs: 'cleanup_inputs/item????/*'  // more accurately, other non-hidden files in the same folder will be deleted as well
     val virtual_dep_flag  // for specifying steps do not produce output files but produce values, set those values here
 
   output:

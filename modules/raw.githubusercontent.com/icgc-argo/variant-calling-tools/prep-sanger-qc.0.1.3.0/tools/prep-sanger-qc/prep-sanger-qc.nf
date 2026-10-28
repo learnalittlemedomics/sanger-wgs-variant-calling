@@ -35,7 +35,7 @@ params.mem = 2  // in GB
 
 process prepSangerQc {
   container "quay.io/icgc-argo/prep-sanger-qc:prep-sanger-qc.${params.container_version ?: version}"
-  publishDir "${params.publish_dir}/${task.process.replaceAll(':', '_')}", mode: "copy", enabled: params.publish_dir
+  publishDir "${params.publish_dir}/${task.process.replaceAll(':', '_')}", mode: "copy", enabled: (params.publish_dir ? true : false)
 
   cpus params.cpus
   memory "${params.mem} GB"
