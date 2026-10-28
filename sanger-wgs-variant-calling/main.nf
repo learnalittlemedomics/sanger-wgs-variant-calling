@@ -159,6 +159,8 @@ params.normal_extra_info = "NO_FILE6"
 // dir for outputs, must be set when running in local mode
 params.publish_dir = ""
 params.cleanup = true
+params.sanger_steps = [:]
+params.sanger_scatter = [:]
 params.cpus = 1
 params.mem = 1
 params.max_retries = 5  // set to 0 will disable retry
@@ -213,7 +215,23 @@ generateBas_params = [
     *:(params.generateBas ?: [:])
 ]
 
+sanger_steps = [ascat: true, pindel: false, caveman: false, brass: false, qc: false, *:(params.sanger_steps ?: [:])]
+for (entry in sanger_steps) {
+    if (!(entry.key in ['ascat','pindel','caveman','brass','qc']) || !(entry.value instanceof Boolean))
+        throw new IllegalArgumentException("Invalid sanger_steps entry: ${entry}; use true/false")
+}
+if (sanger_steps.caveman && (!sanger_steps.ascat || !sanger_steps.pindel))
+    throw new IllegalArgumentException('CaVEMan requires ascat=true and pindel=true (original copy-number / germline BED dependencies)')
+if ((sanger_steps.brass || sanger_steps.qc) && !sanger_steps.ascat)
+    throw new IllegalArgumentException('BRASS and tumour QC require ascat=true (original ASCAT statistics dependency)')
+if (!sanger_steps.values().any { it })
+    throw new IllegalArgumentException('Enable at least one sanger_steps entry')
+log.info "Split Sanger steps: ${sanger_steps}"
+
+params.sanger_dependency_optimize = true
+
 sangerWgsVariantCaller_params = [
+    dependency_optimize: params.sanger_dependency_optimize,
     'cpus': params.cpus,
     'mem': params.mem,
     'species': 'human',
@@ -230,7 +248,11 @@ sangerWgsVariantCaller_params = [
     'ref_snv_indel_tar': '',
     'ref_cnv_sv_tar': '',
     'qcset_tar': '',
-    *:(params.sangerWgsVariantCaller ?: [:])
+    *:(params.sangerWgsVariantCaller ?: [:]),
+    steps: sanger_steps,
+    split_sif: params.sanger_split_sif,
+    resources: params.sanger_resources,
+    scatter: (params.sanger_scatter ?: [:])
 ]
 
 repackSangerResults_params = [
@@ -294,7 +316,7 @@ upload_params = [
 // Include all modules and pass params
 include { SongScoreDownload as dnldT; SongScoreDownload as dnldN } from './wfpr_modules/github.com/icgc-argo-workflows/nextflow-data-processing-utility-tools/song-score-download@2.9.0/main.nf' params(download_params)
 include { generateBas as basT; generateBas as basN; } from './modules/raw.githubusercontent.com/icgc-argo/variant-calling-tools/generate-bas.0.2.1.0/tools/generate-bas/generate-bas' params(generateBas_params)
-include { sangerWgsVariantCaller as sangerWgs } from './modules/raw.githubusercontent.com/icgc-argo/variant-calling-tools/sanger-wgs-variant-caller.2.1.0-9/tools/sanger-wgs-variant-caller/sanger-wgs-variant-caller' params(sangerWgsVariantCaller_params)
+include { sangerWgsSplit as sangerWgs } from './modules/sanger-split' params(sangerWgsVariantCaller_params)
 include { repackSangerResults as repack } from './modules/raw.githubusercontent.com/icgc-argo/variant-calling-tools/repack-sanger-results.0.2.0.0/tools/repack-sanger-results/repack-sanger-results' params(repackSangerResults_params)
 include { cavemanVcfFix as cavemanFix } from './modules/raw.githubusercontent.com/icgc-argo/variant-calling-tools/caveman-vcf-fix.0.1.0.0/tools/caveman-vcf-fix/caveman-vcf-fix' params(cavemanVcfFix_params)
 include { prepSangerSupplement as prepSupp } from './modules/raw.githubusercontent.com/icgc-argo/variant-calling-tools/prep-sanger-supplement.0.1.2.0/tools/prep-sanger-supplement/prep-sanger-supplement' params(prepSangerSupplement_params)
@@ -393,96 +415,81 @@ workflow SangerWgs {
             basT.out.bas_file,  // bas
             normal_aln_seq,  // aln seq
             normal_aln_seq_idx.collect(),  // idx
-            basN.out.bas_file  // bas
+            basN.out.bas_file,  // bas
+            file("${projectDir}/../scripts/sanger-split")
         )
 
-        // repack results
+        // Unmodified original post-processing modules, selected by enabled caller.
         repack(sangerWgs.out.result_archive, 'WGS')
-
-        // fix caveman bug
-        cavemanFix(repack.out.caveman)
-
-        // extract variant calls
-        extractVarSnv(cavemanFix.out.fixed_tar, 'flagged.muts')
-        extractVarIndel(repack.out.pindel, 'flagged')
-        extractVarCnv(repack.out.ascat, 'copynumber.caveman')
-        extractVarSv(repack.out.brass, 'annot')
-
-        // prepare variant call supplements
-        prepSupp(cavemanFix.out.fixed_tar.concat(
-                    repack.out.pindel, repack.out.ascat, repack.out.brass, sangerWgs.out.timings).collect())
-
-        pGenVarSnv(
-            normal_aln_meta, tumour_aln_meta,
-            extractVarSnv.out.extracted_files,
-            name, short_name, version
-        )
-        pGenVarIndel(
-            normal_aln_meta, tumour_aln_meta,
-            extractVarIndel.out.extracted_files,
-            name, short_name, version
-        )
-        pGenVarCnv(
-            normal_aln_meta, tumour_aln_meta,
-            extractVarCnv.out.extracted_files,
-            name, short_name, version
-        )
-        pGenVarSv(
-            normal_aln_meta, tumour_aln_meta,
-            extractVarSv.out.extracted_files,
-            name, short_name, version
-        )
-        pGenVarSupp(
-            normal_aln_meta, tumour_aln_meta,
-            prepSupp.out.supplement_tar.collect(),
-            name, short_name, version
-        )
-
-        // prepare and upload sanger qc metrics
-        prepQc(
-            basN.out.bas_file_with_tn.concat(
-                basT.out.bas_file_with_tn, repack.out.normal_contamination, repack.out.tumour_contamination,
-                repack.out.genotyped, repack.out.ascat).collect()
-        )
-        pGenQc(
-            normal_aln_meta, tumour_aln_meta,
-            prepQc.out.qc_metrics_tar,
-            name, short_name, version
-        )
-
-        // upload variant results
-        if (!local_mode) {
-            upSnv(study_id, pGenVarSnv.out.payload, pGenVarSnv.out.files_to_upload, '')
-            upIndel(study_id, pGenVarIndel.out.payload, pGenVarIndel.out.files_to_upload, '')
-            upCnv(study_id, pGenVarCnv.out.payload, pGenVarCnv.out.files_to_upload, '')
-            upSv(study_id, pGenVarSv.out.payload, pGenVarSv.out.files_to_upload, '')
-            upSupp(study_id, pGenVarSupp.out.payload, pGenVarSupp.out.files_to_upload, '')
-            upQc(study_id, pGenQc.out.payload, pGenQc.out.files_to_upload, '')
-        }
-
-        if (params.cleanup) {
-            if (local_mode) {
-                cleanup(
-                    basT.out.bas_file.concat(basN.out, sangerWgs.out, repack.out.pindel,
-                        cavemanFix.out.fixed_tar, extractVarSnv.out.extracted_files, extractVarIndel.out.extracted_files,
-                        extractVarCnv.out.extracted_files, extractVarSv.out.extracted_files,
-                        prepQc.out, prepSupp.out, pGenVarSnv.out, pGenVarIndel.out,
-                        pGenVarCnv.out, pGenVarSv.out, pGenQc.out, pGenVarSupp.out).collect(),
-                    true
-                )
-            } else {
-                cleanup(
-                    dnldT.out.files.concat(dnldN.out, basT.out, basN.out, sangerWgs.out, repack.out.pindel,
-                        cavemanFix.out.fixed_tar, extractVarSnv.out.extracted_files, extractVarIndel.out.extracted_files,
-                        extractVarCnv.out.extracted_files, extractVarSv.out.extracted_files,
-                        prepQc.out, prepSupp.out, pGenVarSnv.out, pGenVarIndel.out,
-                        pGenVarCnv.out, pGenVarSv.out, pGenQc.out, pGenVarSupp.out).collect(),
-                    upSv.out.analysis_id.concat(
-                        upSnv.out.analysis_id, upIndel.out.analysis_id, upCnv.out.analysis_id,
-                        upSupp.out.analysis_id, upQc.out.analysis_id).collect()
-                )
+        supplement_inputs = sangerWgs.out.timings
+        cleanup_inputs = basT.out.bas_file.concat(basN.out.bas_file,
+            sangerWgs.out.run_params, sangerWgs.out.result_archive,
+            sangerWgs.out.timings, sangerWgs.out.global_time, sangerWgs.out.intermediates.flatten())
+        upload_ids = Channel.empty()
+        if (sanger_steps.ascat) {
+            extractVarCnv(repack.out.ascat, 'copynumber.caveman')
+            pGenVarCnv(normal_aln_meta, tumour_aln_meta, extractVarCnv.out.extracted_files, name, short_name, version)
+            supplement_inputs = supplement_inputs.concat(repack.out.ascat)
+            cleanup_inputs = cleanup_inputs.concat(repack.out.ascat, extractVarCnv.out.extracted_files,
+                pGenVarCnv.out.payload, pGenVarCnv.out.files_to_upload)
+            if (!local_mode) {
+                upCnv(study_id, pGenVarCnv.out.payload, pGenVarCnv.out.files_to_upload, '')
+                upload_ids = upload_ids.concat(upCnv.out.analysis_id)
             }
         }
+        if (sanger_steps.pindel) {
+            extractVarIndel(repack.out.pindel, 'flagged')
+            pGenVarIndel(normal_aln_meta, tumour_aln_meta, extractVarIndel.out.extracted_files, name, short_name, version)
+            supplement_inputs = supplement_inputs.concat(repack.out.pindel)
+            cleanup_inputs = cleanup_inputs.concat(repack.out.pindel, extractVarIndel.out.extracted_files,
+                pGenVarIndel.out.payload, pGenVarIndel.out.files_to_upload)
+            if (!local_mode) {
+                upIndel(study_id, pGenVarIndel.out.payload, pGenVarIndel.out.files_to_upload, '')
+                upload_ids = upload_ids.concat(upIndel.out.analysis_id)
+            }
+        }
+        if (sanger_steps.caveman) {
+            cavemanFix(repack.out.caveman)
+            extractVarSnv(cavemanFix.out.fixed_tar, 'flagged.muts')
+            pGenVarSnv(normal_aln_meta, tumour_aln_meta, extractVarSnv.out.extracted_files, name, short_name, version)
+            supplement_inputs = supplement_inputs.concat(cavemanFix.out.fixed_tar)
+            cleanup_inputs = cleanup_inputs.concat(cavemanFix.out.fixed_tar, extractVarSnv.out.extracted_files,
+                pGenVarSnv.out.payload, pGenVarSnv.out.files_to_upload)
+            if (!local_mode) {
+                upSnv(study_id, pGenVarSnv.out.payload, pGenVarSnv.out.files_to_upload, '')
+                upload_ids = upload_ids.concat(upSnv.out.analysis_id)
+            }
+        }
+        if (sanger_steps.brass) {
+            extractVarSv(repack.out.brass, 'annot')
+            pGenVarSv(normal_aln_meta, tumour_aln_meta, extractVarSv.out.extracted_files, name, short_name, version)
+            supplement_inputs = supplement_inputs.concat(repack.out.brass)
+            cleanup_inputs = cleanup_inputs.concat(repack.out.brass, extractVarSv.out.extracted_files,
+                pGenVarSv.out.payload, pGenVarSv.out.files_to_upload)
+            if (!local_mode) {
+                upSv(study_id, pGenVarSv.out.payload, pGenVarSv.out.files_to_upload, '')
+                upload_ids = upload_ids.concat(upSv.out.analysis_id)
+            }
+        }
+        prepSupp(supplement_inputs.collect())
+        pGenVarSupp(normal_aln_meta, tumour_aln_meta, prepSupp.out.supplement_tar.collect(), name, short_name, version)
+        // BAS/ASCAT metrics remain available even when optional genotype/contamination QC is off.
+        prepQc(basN.out.bas_file_with_tn.concat(basT.out.bas_file_with_tn,
+            repack.out.normal_contamination, repack.out.tumour_contamination,
+            repack.out.genotyped, repack.out.ascat).collect())
+        pGenQc(normal_aln_meta, tumour_aln_meta, prepQc.out.qc_metrics_tar, name, short_name, version)
+        if (!local_mode) {
+            upSupp(study_id, pGenVarSupp.out.payload, pGenVarSupp.out.files_to_upload, '')
+            upQc(study_id, pGenQc.out.payload, pGenQc.out.files_to_upload, '')
+            upload_ids = upload_ids.concat(upSupp.out.analysis_id, upQc.out.analysis_id)
+            cleanup_inputs = cleanup_inputs.concat(dnldT.out.files, dnldN.out.files)
+        }
+        if (params.cleanup) {
+            cleanup_inputs = cleanup_inputs.concat(prepQc.out.qc_metrics_tar, prepSupp.out.supplement_tar,
+                pGenQc.out.payload, pGenQc.out.files_to_upload, pGenVarSupp.out.payload, pGenVarSupp.out.files_to_upload)
+            cleanup(cleanup_inputs.collect(), local_mode ? true : upload_ids.collect())
+        }
+
 
 }
 

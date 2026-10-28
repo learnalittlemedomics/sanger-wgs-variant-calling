@@ -76,7 +76,7 @@ process payloadGenVariantCalling {
     main.py \
          -f ${files_to_upload} \
          -n ${normal_analysis} \
-         -r ${workflow.runName} \
+         -r ${workflow.sessionId} \
          -j ${workflow.sessionId} \
          -w ${wf_name} \
          -s ${wf_short_name} \

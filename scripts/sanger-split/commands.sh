@@ -1,0 +1,191 @@
+# Exact command assignments from upstream analysisWGS.sh; do not edit parameters.
+do_parallel[CaVEMan_setup]="caveman.pl \
+ -r $REF_BASE/genome.fa.fai \
+ -ig $REF_BASE/caveman/HiDepth.tsv \
+ -b $REF_BASE/caveman/flagging \
+ -ab $REF_BASE/vagrent \
+ -u $REF_BASE/caveman \
+ -s '$SPECIES' \
+ -sa $ASSEMBLY \
+ -t $CPU \
+ -st $PROTOCOL \
+ -tc $TMP/tum.cn.bed \
+ -nc $TMP/norm.cn.bed \
+ -td 5 -nd 2 \
+ -tb $BAM_MT_TMP \
+ -nb $BAM_WT_TMP \
+ -c $SNVFLAG \
+ -f $REF_BASE/caveman/flagging/flag.to.vcf.convert.ini \
+ -e $CAVESPLIT \
+ -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/caveman \
+ -x $CONTIG_EXCLUDE \
+ -p setup"
+do_parallel[geno]="compareBamGenotypes.pl \
+  -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/genotyped \
+  -nb $BAM_WT_TMP \
+  -j $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/genotyped/result.json \
+  -tb $BAM_MT_TMP \
+  -s $REF_BASE/general.tsv \
+  -g $REF_BASE/gender.tsv"
+do_parallel[verify_WT]="verifyBamHomChk.pl -d 25 \
+    -o $OUTPUT_DIR/${PROTOCOL}_${NAME_WT}/contamination \
+    -b $BAM_WT_TMP \
+    -t $CPU \
+    -j $OUTPUT_DIR/${PROTOCOL}_${NAME_WT}/contamination/result.json \
+    -s $REF_BASE/verifyBamID_snps.vcf.gz"
+do_parallel[CaVEMan_split]="caveman.pl \
+ -r $REF_BASE/genome.fa.fai \
+ -ig $REF_BASE/caveman/HiDepth.tsv \
+ -b $REF_BASE/caveman/flagging \
+ -ab $REF_BASE/vagrent \
+ -u $REF_BASE/caveman \
+ -s '$SPECIES' \
+ -sa $ASSEMBLY \
+ -t $CPU \
+ -st $PROTOCOL \
+ -tc $TMP/tum.cn.bed \
+ -nc $TMP/norm.cn.bed \
+ -td 5 -nd 2 \
+ -tb $BAM_MT_TMP \
+ -nb $BAM_WT_TMP \
+ -c $SNVFLAG \
+ -f $REF_BASE/caveman/flagging/flag.to.vcf.convert.ini \
+ -e $CAVESPLIT \
+ -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/caveman \
+ -x $CONTIG_EXCLUDE \
+ -p split"
+do_parallel[ascat]="ascat.pl \
+ -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/ascat \
+ -t $BAM_MT_TMP \
+ -n $BAM_WT_TMP \
+ -sg $REF_BASE/ascat/SnpGcCorrections.tsv \
+ -r $REF_BASE/genome.fa \
+ -q 20 \
+ -g L \
+ -l $REF_BASE/gender.tsv \
+ -rs '$SPECIES' \
+ -ra $ASSEMBLY \
+ -pr $PROTOCOL \
+ -pl ILLUMINA \
+ -c $CPU\
+ -force\
+ $ASCAT_ADD_ARGS"
+do_parallel[BRASS_input]="brass.pl -j 4 -k 4 -c $CPU \
+ -d $REF_BASE/brass/HiDepth.bed.gz \
+ -f $REF_BASE/brass/brass_np.groups.gz \
+ -g $REF_BASE/genome.fa \
+ -s '$SPECIES' -as $ASSEMBLY -pr $PROTOCOL -pl ILLUMINA \
+ -g_cache $REF_BASE/vagrent/vagrent.cache.gz \
+ -vi $REF_BASE/brass/viral.genomic.fa.2bit \
+ -mi $REF_BASE/brass/all_ncbi_bacteria \
+ -b $REF_BASE/brass/500bp_windows.gc.bed.gz \
+ -ct $REF_BASE/brass/CentTelo.tsv \
+ -cb $REF_BASE/brass/cytoband.txt \
+ -t $BAM_MT_TMP \
+ -n $BAM_WT_TMP \
+ -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/brass \
+ -p input"
+do_parallel[BRASS_cover]="nice -n 10 brass.pl -j 4 -k 4 -c $CPU \
+ -d $REF_BASE/brass/HiDepth.bed.gz \
+ -f $REF_BASE/brass/brass_np.groups.gz \
+ -g $REF_BASE/genome.fa \
+ -s '$SPECIES' -as $ASSEMBLY -pr $PROTOCOL -pl ILLUMINA \
+ -g_cache $REF_BASE/vagrent/vagrent.cache.gz \
+ -vi $REF_BASE/brass/viral.genomic.fa.2bit \
+ -mi $REF_BASE/brass/all_ncbi_bacteria \
+ -b $REF_BASE/brass/500bp_windows.gc.bed.gz \
+ -ct $REF_BASE/brass/CentTelo.tsv \
+ -cb $REF_BASE/brass/cytoband.txt \
+ -t $BAM_MT_TMP \
+ -n $BAM_WT_TMP \
+ -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/brass \
+ -p cover"
+do_parallel[cgpPindel]="pindel.pl \
+ -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/pindel \
+ -r $REF_BASE/genome.fa \
+ -t $BAM_MT_TMP \
+ -n $BAM_WT_TMP \
+ -s $REF_BASE/pindel/simpleRepeats.bed.gz \
+ -u $REF_BASE/pindel/pindel_np.gff3.gz \
+ -f $REF_BASE/pindel/${PROTOCOL}_Rules.lst \
+ -g $REF_BASE/vagrent/codingexon_regions.indel.bed.gz \
+ -st $PROTOCOL \
+ -as $ASSEMBLY \
+ -sp '$SPECIES' \
+ -e $CONTIG_EXCLUDE \
+ -b $REF_BASE/pindel/HiDepth.bed.gz \
+ -c $PINDEL_CPU \
+ -sf $REF_BASE/pindel/softRules.lst"
+do_parallel[CaVEMan]="caveman.pl \
+ -r $REF_BASE/genome.fa.fai \
+ -ig $REF_BASE/caveman/HiDepth.tsv \
+ -b $REF_BASE/caveman/flagging \
+ -ab $REF_BASE/vagrent \
+ -u $REF_BASE/caveman \
+ -s '$SPECIES' \
+ -sa $ASSEMBLY \
+ -t $CPU \
+ -st $PROTOCOL \
+ -tc $TMP/tum.cn.bed \
+ -nc $TMP/norm.cn.bed \
+ -td 5 -nd 2 \
+ -tb $BAM_MT_TMP \
+ -nb $BAM_WT_TMP \
+ -c $SNVFLAG \
+ -f $REF_BASE/caveman/flagging/flag.to.vcf.convert.ini \
+ -e $CAVESPLIT \
+ -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/caveman \
+ -x $CONTIG_EXCLUDE \
+ -k $NORM_CONTAM \
+ -no-flagging -noclean"
+do_parallel[BRASS]="brass.pl -j 4 -k 4 -c $CPU \
+ -d $REF_BASE/brass/HiDepth.bed.gz \
+ -f $REF_BASE/brass/brass_np.groups.gz \
+ -g $REF_BASE/genome.fa \
+ -s '$SPECIES' -as $ASSEMBLY -pr $PROTOCOL -pl ILLUMINA \
+ -g_cache $REF_BASE/vagrent/vagrent.cache.gz \
+ -vi $REF_BASE/brass/viral.genomic.fa.2bit \
+ -mi $REF_BASE/brass/all_ncbi_bacteria \
+ -b $REF_BASE/brass/500bp_windows.gc.bed.gz \
+ -ct $REF_BASE/brass/CentTelo.tsv \
+ -cb $REF_BASE/brass/cytoband.txt \
+ -t $BAM_MT_TMP \
+ -n $BAM_WT_TMP \
+ -ss $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/ascat/$NAME_MT.samplestatistics.txt \
+ -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/brass"
+do_parallel[cgpPindel_annot]="AnnotateVcf.pl -t -c $REF_BASE/vagrent/vagrent.cache.gz \
+   -i $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/pindel/${NAME_MT}_vs_${NAME_WT}.flagged.vcf.gz \
+   -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/pindel/${NAME_MT}_vs_${NAME_WT}.annot.vcf"
+do_parallel[CaVEMan_flag]="caveman.pl \
+ -r $REF_BASE/genome.fa.fai \
+ -ig $REF_BASE/caveman/HiDepth.tsv \
+ -b $REF_BASE/caveman/flagging \
+ -ab $REF_BASE/vagrent \
+ -u $REF_BASE/caveman \
+ -s '$SPECIES' \
+ -sa $ASSEMBLY \
+ -t $CPU \
+ -st $PROTOCOL \
+ -tc $TMP/tum.cn.bed \
+ -nc $TMP/norm.cn.bed \
+ -td 5 -nd 2 \
+ -tb $BAM_MT_TMP \
+ -nb $BAM_WT_TMP \
+ -c $SNVFLAG \
+ -f $REF_BASE/caveman/flagging/flag.to.vcf.convert.ini \
+ -e $CAVESPLIT \
+ -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/caveman \
+ -x $CONTIG_EXCLUDE \
+ -k $NORM_CONTAM \
+ -in $GERMLINE_BED.gz \
+ -p flag"
+do_parallel[CaVEMan_annot]="AnnotateVcf.pl -t -c $REF_BASE/vagrent/vagrent.cache.gz \
+   -i $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/caveman/${NAME_MT}_vs_${NAME_WT}.flagged.muts.vcf.gz \
+   -o $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/caveman/${NAME_MT}_vs_${NAME_WT}.annot.muts.vcf"
+do_parallel[verify_MT]="verifyBamHomChk.pl -d 25 \
+   -o $OUTPUT_DIR/${PROTOCOL}_$NAME_MT/contamination \
+   -b $BAM_MT_TMP \
+   -t $CPU \
+   -a $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}_vs_${NAME_WT}/ascat/${NAME_MT}.copynumber.caveman.csv \
+   -j $OUTPUT_DIR/${PROTOCOL}_${NAME_MT}/contamination/result.json \
+   -s $REF_BASE/verifyBamID_snps.vcf.gz"

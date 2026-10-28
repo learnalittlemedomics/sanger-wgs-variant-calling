@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+"""Test-only Slurm stub; never calls a real scheduler."""
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+state=Path(os.environ['SCATTER_FAKE_SLURM_STATE'])
+state.mkdir(parents=True,exist_ok=True)
+counter=state/'submissions'
+n=int(counter.read_text())+1 if counter.exists() else 1
+counter.write_text(str(n))
+if n<=4:
+    print("sbatch: error: Batch job submission failed: Job violates accounting/QOS policy (job submit limit, user's size and/or time limits)",file=sys.stderr)
+    sys.exit(1)
+script=Path(sys.argv[-1]).resolve()
+if not script.is_file():sys.exit('Fake sbatch cannot find script: '+str(script))
+jobid=900000+n
+with (state/'job.log').open('ab') as log:
+    subprocess.Popen(['bash',str(script)],cwd=str(script.parent),stdin=subprocess.DEVNULL,
+                     stdout=log,stderr=log,start_new_session=True,
+                     env=dict(os.environ,SLURM_JOB_ID=str(jobid),SLURM_JOBID=str(jobid)))
+print('Submitted batch job '+str(jobid))
