@@ -132,8 +132,23 @@ for (@lines) {
 print STDERR "Resolving overlapping rg end ranges...\n";
 
 
+# BEGIN ordered chromosome-pair index
+# Cross-chromosome-pair comparisons immediately skip below, without changing
+# reads or records. Index only those pairs; keep the original global i order
+# and ascending j order because overlapping groups can share mutable reads.
+# Nested hashes avoid delimiter collisions in reference sequence names.
+my %indices_by_chr_pair;
+my @position_in_chr_pair;
+for my $idx (0..$#lines) {
+  my $group = ($indices_by_chr_pair{$lines[$idx][0]}{$lines[$idx][3]} ||= []);
+  $position_in_chr_pair[$idx] = scalar(@{$group});
+  push @{$group}, $idx;
+}
 for my $i (0..($#lines - 1)) {
-  for my $j (($i+1)..$#lines) {
+  my $group = $indices_by_chr_pair{$lines[$i][0]}{$lines[$i][3]};
+  for my $group_pos (($position_in_chr_pair[$i]+1)..$#{$group}) {
+    my $j = $group->[$group_pos];
+# END ordered chromosome-pair index
     # saves all the re-splitting reusing the originally parsed data
     # there's some modification of values here though so clone it
     my @F1 = @{ dclone($lines[$i]) };
