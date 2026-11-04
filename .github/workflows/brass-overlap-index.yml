@@ -1,0 +1,24 @@
+name: BRASS overlap index
+on:
+  pull_request:
+    paths:
+      - 'scripts/sanger-split/get_abs_bkpts_from_clipped_reads.pl'
+      - 'tests/scatter/test_brass_overlap_index.py'
+      - '.github/workflows/brass-overlap-index.yml'
+  push:
+    branches: [main, 'optimize/brass-overlap-index']
+    paths:
+      - 'scripts/sanger-split/get_abs_bkpts_from_clipped_reads.pl'
+      - 'tests/scatter/test_brass_overlap_index.py'
+      - '.github/workflows/brass-overlap-index.yml'
+permissions:
+  contents: read
+jobs:
+  ordered-pair-equivalence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python tests/scatter/test_brass_overlap_index.py

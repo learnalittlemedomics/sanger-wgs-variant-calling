@@ -178,6 +178,29 @@ The repository retains mock integration checks for CaVEMan, Pindel, and BRASS, N
 
 These checks are optional developer tools; they are not executed simply by reading or cloning the repository.
 
+### 13. Avoid guaranteed no-op BRASS overlap comparisons
+
+**Where:** [`get_abs_bkpts_from_clipped_reads.pl`](scripts/sanger-split/get_abs_bkpts_from_clipped_reads.pl).
+
+The clipped-read overlap loop indexes candidates by their ordered chromosome
+pair, retaining the original outer-record order and within-group comparison
+order. It skips only combinations the previous implementation immediately
+rejected. Read collection, deep copies, clipping thresholds, read reassignment,
+and output generation remain unchanged.
+
+See [the equivalence argument and validation procedure](docs/brass-overlap-index.md).
+The actual Perl enumeration is tested against a bounded exhaustive oracle;
+the real-data benchmark tool compares helper outputs and diagnostics while
+reporting overlap-loop time separately from total runtime. This optimization
+does not parallelize shared read updates or hot-patch running analyses.
+
+Eight bounded real-read fixtures produced byte-identical helper outputs and
+identical diagnostics. In one 2,500-row mixed-group fixture, the overlap loop
+fell from 73.315 to 4.326 seconds (16.95x); the complete single-group fixture
+showed essentially no loop improvement. These are single paired observations,
+not a measured whole-pipeline speedup; full timings and limitations are in the
+linked validation report.
+
 ## Repository guide
 
 | File or directory | Purpose |
@@ -213,7 +236,7 @@ The repository owner reports having run the modified workflow in their own envir
 
 The public version includes sanitized configuration and adjusted relative paths. **Those publication-specific configuration and path changes have not been rerun end to end.**
 
-Mock and stub checks validate orchestration behavior; they do not establish biological accuracy, numerical equivalence, or realistic memory consumption. This repository does not currently publish a controlled before/after benchmark for runtime, peak memory, compute cost, or variant-call concordance. The benefits described above explain the execution design; measured gains depend on the dataset and environment.
+Mock and stub checks validate orchestration behavior; they do not establish biological accuracy, numerical equivalence, or realistic memory consumption. The BRASS overlap-index change has a separate, narrowly scoped [validation procedure](docs/brass-overlap-index.md). It does not establish end-to-end variant-call concordance or workflow-wide performance. Measured gains depend on the dataset and environment.
 
 ## Change history and acknowledgements
 
