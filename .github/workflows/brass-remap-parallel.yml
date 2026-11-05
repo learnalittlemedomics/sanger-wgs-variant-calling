@@ -1,0 +1,26 @@
+name: BRASS remap parallel
+on:
+  pull_request:
+    paths:
+      - 'scripts/sanger-split/brass-remap-parallel/**'
+      - 'conf/brass-remap-parallel.config'
+      - 'tests/scatter/test_brass_remap_parallel.py'
+      - '.github/workflows/brass-remap-parallel.yml'
+  push:
+    branches: [main, 'sync/brass-remap-parallel']
+    paths:
+      - 'scripts/sanger-split/brass-remap-parallel/**'
+      - 'conf/brass-remap-parallel.config'
+      - 'tests/scatter/test_brass_remap_parallel.py'
+      - '.github/workflows/brass-remap-parallel.yml'
+permissions:
+  contents: read
+jobs:
+  checkpoint-and-order:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python tests/scatter/test_brass_remap_parallel.py
