@@ -1,0 +1,117 @@
+{
+  "date": "2026-11-06",
+  "scope": "Bounded private-input comparisons and recovery checks, not whole-workflow equivalence or full-input timing. No sequencing data are included.",
+  "original_worker_sha256": "ff7e5d886547e2c52aded3c3f1d694139129f615a42ecdfbd9d2502142b99503",
+  "published_release_sha256": {
+    "entry.pl": "a8135f70b05f8fa53423035d1c0287fb9113562b939257ed1442aafcd7919c62",
+    "worker.pl": "1353868b69b5480d149ed62bbcd39a3f49cab4229d5920e8cda3717257e71f2d",
+    "controller.py": "c9a0da3f7ee1a61abf0b91b8b664b1f7a528640f9f00c1d2f36eb0cdaec6a170"
+  },
+  "scoring": {
+    "repeats": 3,
+    "real_fixtures": 16,
+    "scope": "Same 48 exact scoring calls per batch, randomized configuration order, at most 30 allocated CPUs; not whole filter or workflow.",
+    "summary": [
+      {
+        "threads_per_call": 30,
+        "median_seconds": 9.10791637096554,
+        "scores_identical": true,
+        "speedup_over_serial_T30": 1.0,
+        "workers": 1
+      },
+      {
+        "threads_per_call": 15,
+        "median_seconds": 4.15872050402686,
+        "scores_identical": true,
+        "speedup_over_serial_T30": 2.1900765781558076,
+        "workers": 2
+      },
+      {
+        "threads_per_call": 7,
+        "median_seconds": 2.416148544056341,
+        "scores_identical": true,
+        "speedup_over_serial_T30": 3.7696011668532403,
+        "workers": 4
+      },
+      {
+        "threads_per_call": 3,
+        "median_seconds": 1.8944590259343386,
+        "scores_identical": true,
+        "speedup_over_serial_T30": 4.807660786684767,
+        "workers": 8
+      },
+      {
+        "threads_per_call": 2,
+        "median_seconds": 1.5023786867968738,
+        "scores_identical": true,
+        "speedup_over_serial_T30": 6.062330656716084,
+        "workers": 15
+      },
+      {
+        "threads_per_call": 1,
+        "median_seconds": 1.6797589911147952,
+        "scores_identical": true,
+        "speedup_over_serial_T30": 5.422156642198383,
+        "workers": 30
+      }
+    ]
+  },
+  "remapping_state_comparisons": [
+    {
+      "case": "real40",
+      "regions": 40,
+      "workers": 15,
+      "threads_per_worker": 2,
+      "serial30_seconds": 107.24176280898973,
+      "parallel_seconds": 61.60372633812949,
+      "remapping_speedup": 1.7408324006304905,
+      "all_four_arrays_equal": true,
+      "global_read_region_map_equal": true,
+      "microbial_fasta_byte_equal": true,
+      "cross_shard_shared_reads": 0,
+      "sequence_bytes": 872453
+    },
+    {
+      "case": "shared_read_boundary",
+      "regions": 16,
+      "workers": 2,
+      "threads_per_worker": 2,
+      "serial30_seconds": 9.871080263052136,
+      "parallel_seconds": 10.19649979704991,
+      "remapping_speedup": 0.9680851723164918,
+      "all_four_arrays_equal": true,
+      "global_read_region_map_equal": true,
+      "microbial_fasta_byte_equal": true,
+      "cross_shard_shared_reads": 63,
+      "sequence_bytes": 55438
+    }
+  ],
+  "complete_filter": {
+    "cases": 40,
+    "original_seconds": 315.46137641801033,
+    "parallel_8x3_seconds": 268.84311352303484,
+    "r5_bytes_in_both": 0,
+    "scores_bytes": 2819,
+    "r5_and_scores_byte_equal": true,
+    "microbial_fasta_byte_equal": true,
+    "warning": "Empty r5 alone does not establish equivalence; use scores, arrays, read map and FASTA checks as well."
+  },
+  "deployment_recovery_checks": {
+    "status": "PASS",
+    "real_records": 40,
+    "interrupted_checkpoint_count": 1,
+    "completed_chunks_reused": true,
+    "full_r5_scores_bytes_equal": true,
+    "four_arrays_and_global_map_equal": true,
+    "allreads_bytes_equal": true,
+    "final_result_cache_reused": true,
+    "corrupted_checkpoint_rejected": true,
+    "worker_failure_propagated": true
+  },
+  "limitations": [
+    "The forty-record final-output comparison has no retained variants.",
+    "Real-data timing observations are bounded and may depend on cache and node load.",
+    "Public synthetic checks exercise orchestration, not the biological caller.",
+    "The complete production analysis was still running at publication."
+  ]
+}

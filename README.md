@@ -201,6 +201,28 @@ showed essentially no loop improvement. These are single paired observations,
 not a measured whole-pipeline speedup; full timings and limitations are in the
 linked validation report.
 
+### 14. Parallelize BRASS remapping with ordered, resumable chunks
+
+**Where:** [`brass-remap-parallel/`](scripts/sanger-split/brass-remap-parallel/)
+and the opt-in [`configuration`](conf/brass-remap-parallel.config).
+
+The remapping helper divides consecutive candidates into 256-record chunks,
+runs up to 15 local workers with 2 scoring threads each in a 30-CPU allocation,
+and joins intermediate arrays, read assignments and FASTA in original order.
+The original microbial filtering then runs once on the merged state. Per-chunk
+hash receipts support restart and reject damaged checkpoints; child errors
+propagate instead of producing a success marker.
+
+The controller, entry point and worker match the deployed, bounded-data-tested
+release byte for byte. Enabling it is explicit: cloning the repository does
+not change running jobs or switch other samples. The current implementation
+is single-node; it does not request or distribute work across 450 CPUs.
+
+See [setup, recovery, equivalence checks and measured limitations](docs/brass-remap-parallel.md).
+Forty real candidates had matching scores, arrays, read ownership and FASTA;
+the remapping phase took 107.242 versus 61.604 seconds. The final r5 was empty
+in both versions, so this is not full-input or whole-workflow validation.
+
 ## Repository guide
 
 | File or directory | Purpose |
