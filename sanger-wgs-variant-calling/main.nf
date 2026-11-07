@@ -290,7 +290,8 @@ payloadGenVariantCall_params = [
     'cpus': params.cpus,
     'mem': params.mem,
     'publish_dir': params.publish_dir,
-    *:(params.payloadGenVariantCall ?: [:])
+    *:(params.payloadGenVariantCall ?: [:]),
+    'publish_dir': ''  // Synchronous verifiedPublish owns local publication.
 ]
 
 upload_params = [
@@ -328,6 +329,8 @@ include { cleanupWorkdir as cleanup } from './wfpr_modules/github.com/icgc-argo/
 include { getSecondaryFiles } from './wfpr_modules/github.com/icgc-argo/data-processing-utility-tools/helper-functions@1.0.0/main'
 include { payloadAddUniformIds as pAddIdT; payloadAddUniformIds as pAddIdN } from './wfpr_modules/github.com/icgc-argo/data-processing-utility-tools/payload-add-uniform-ids@0.1.1/main'
 
+
+include { verifiedPublish } from './modules/verified-publish'
 
 workflow SangerWgs {
     take:
@@ -484,10 +487,35 @@ workflow SangerWgs {
             upload_ids = upload_ids.concat(upSupp.out.analysis_id, upQc.out.analysis_id)
             cleanup_inputs = cleanup_inputs.concat(dnldT.out.files, dnldN.out.files)
         }
+
+        // Completion and cleanup depend on durable, verified publication.
+        if (local_mode) {
+            publication_groups = pGenVarSupp.out.payload.map { [role: 'SangerWgs_pGenVarSupp', payload: it.toString()] }
+            publication_groups = publication_groups.concat(pGenQc.out.payload.map { [role: 'SangerWgs_pGenQc', payload: it.toString()] })
+            publication_expected = ['SangerWgs_pGenVarSupp', 'SangerWgs_pGenQc']
+            if (sanger_steps.ascat) {
+                publication_groups = publication_groups.concat(pGenVarCnv.out.payload.map { [role: 'SangerWgs_pGenVarCnv', payload: it.toString()] })
+                publication_expected = publication_expected + ['SangerWgs_pGenVarCnv']
+            }
+            if (sanger_steps.pindel) {
+                publication_groups = publication_groups.concat(pGenVarIndel.out.payload.map { [role: 'SangerWgs_pGenVarIndel', payload: it.toString()] })
+                publication_expected = publication_expected + ['SangerWgs_pGenVarIndel']
+            }
+            if (sanger_steps.caveman) {
+                publication_groups = publication_groups.concat(pGenVarSnv.out.payload.map { [role: 'SangerWgs_pGenVarSnv', payload: it.toString()] })
+                publication_expected = publication_expected + ['SangerWgs_pGenVarSnv']
+            }
+            if (sanger_steps.brass) {
+                publication_groups = publication_groups.concat(pGenVarSv.out.payload.map { [role: 'SangerWgs_pGenVarSv', payload: it.toString()] })
+                publication_expected = publication_expected + ['SangerWgs_pGenVarSv']
+            }
+            verifiedPublish(publication_groups.collect(flat: false), publication_expected, params.publish_dir)
+        }
+
         if (params.cleanup) {
             cleanup_inputs = cleanup_inputs.concat(prepQc.out.qc_metrics_tar, prepSupp.out.supplement_tar,
                 pGenQc.out.payload, pGenQc.out.files_to_upload, pGenVarSupp.out.payload, pGenVarSupp.out.files_to_upload)
-            cleanup(cleanup_inputs.collect(), local_mode ? true : upload_ids.collect())
+            cleanup(cleanup_inputs.collect(), local_mode ? verifiedPublish.out.receipt : upload_ids.collect())
         }
 
 
@@ -507,3 +535,4 @@ workflow {
         params.normal_extra_info
     )
 }
+
