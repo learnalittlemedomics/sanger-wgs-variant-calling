@@ -178,7 +178,14 @@ def publish_file(src, dst, size, md5, force_copy=False):
         backup = None
         if old:
             backup = dst.with_name('.' + dst.name + '.' + uuid.uuid4().hex + '.previous')
-            os.link(str(dst), str(backup))
+            try:
+                os.link(str(dst), str(backup))
+            except OSError as exc:
+                if exc.errno not in (errno.EXDEV, errno.EPERM, errno.EACCES, errno.EOPNOTSUPP, errno.ENOSYS, errno.EMLINK):
+                    raise
+                publish_file(dst, backup, old[2], digest(dst), force_copy=True)
+            if stamp(dst)[:4] != old[:4]:
+                raise RuntimeError('Destination changed while preserving previous file')
         os.replace(str(temp), str(dst))  # temp is always on destination filesystem.
         sync_dir(dst.parent)
         if stamp(src)[:4] != initial[:4] or dst.stat().st_size != size:

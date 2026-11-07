@@ -50,6 +50,15 @@ def test():
         assert all(f['method']=='verified-copy' for f in r['files'])
     with tempfile.TemporaryDirectory(dir='.') as folder:
         root=Path(folder).resolve();m=fixture(root)
+        v.publish(m,force_copy=True)
+        dst=root/'output/M2_pGenVarSnv/out/call.vcf.gz.tbi'
+        dst.write_bytes(b'bad')
+        with patch.object(v.os,'link',side_effect=OSError(errno.EOPNOTSUPP,'Unsupported')):
+            v.publish(m)
+        assert dst.read_bytes()==(root/'work/source/call.vcf.gz.tbi').read_bytes()
+        assert any(p.read_bytes()==b'bad' for p in dst.parent.glob('.*.previous'))
+    with tempfile.TemporaryDirectory(dir='.') as folder:
+        root=Path(folder).resolve();m=fixture(root)
         # Failed copy/checksum cannot expose a final file or leave VERIFIED.
         payload=Path(m['groups'][0]['payload']);d=json.loads(payload.read_text());d['files'][0]['fileMd5sum']='0'*32;payload.write_text(json.dumps(d))
         try:v.publish(m,force_copy=True);raise AssertionError('Bad checksum accepted')
